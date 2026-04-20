@@ -1,7 +1,6 @@
 {
   "name": "ive Gacha System",
   "short_name": "Gacha",
-  "description": "シンプルで高機能なガチャシステム",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0f172a",
