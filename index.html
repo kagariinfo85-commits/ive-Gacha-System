@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ive Gacha System</title>
+
+<style>
+/* --- デザイン変数は維持 --- */
+:root {
+  --bg-core: #0f172a;
+  --bg-surface: rgba(30, 41, 59, 0.7);
+  --accent: #10b981; 
+  --accent-glow: rgba(16, 185, 129, 0.3);
+  --gold: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+  --silver: linear-gradient(135deg, #94a3b8 0%, #475569 100%);
+  --rainbow: linear-gradient(45deg, #4facfe 0%, #00f2fe 50%, #706fd3 100%);
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border: rgba(255, 255, 255, 0.1);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { 
+  margin: 0; 
+  background-color: var(--bg-core);
+  background-image: radial-gradient(circle at 0% 0%, #1e293b 0%, #0f172a 100%);
+  color: var(--text-primary); 
+  font-family: "Inter", "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+  padding-bottom: 100px;
+  min-height: 100vh;
+}
+.container { max-width: 500px; margin: auto; padding: 20px; }
+
+.screen { display: none; }
+.screen.active { display: block; animation: slideUp 0.4s ease-out; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+.hero-banner {
+  width: 100%; padding: 35px 15px; border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+  border: 1px solid var(--border); text-align: center; margin-bottom: 25px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+.hero-banner h1 { margin: 0; font-size: 1.6rem; letter-spacing: 0.15em; font-weight: 800; color: #fff; text-transform: uppercase; }
+
+.glass-panel {
+  background: var(--bg-surface); backdrop-filter: blur(12px);
+  border: 1px solid var(--border); border-radius: 24px; padding: 24px; margin-bottom: 20px;
+}
+
+.btn-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 15px; }
+button { border: none; border-radius: 14px; font-weight: 700; cursor: pointer; transition: 0.3s; color: #fff; }
+.btn-action { background: #334155; padding: 16px; border: 1px solid var(--border); }
+.btn-highlight { background: var(--accent); color: #064e3b; box-shadow: 0 0 15px var(--accent-glow); }
+
+.rarity-pill { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 10px; font-weight: 900; margin-right: 10px; color: #fff; }
+.ur { background: var(--rainbow); }
+.ssr { background: var(--gold); color: #451a03; }
+.sr { background: #8b5cf6; }
+.r { background: #3b82f6; }
+.n { background: #64748b; }
+
+.item-card {
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border);
+  margin: 10px 0; padding: 15px 18px; border-radius: 16px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+input, select {
+  background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border);
+  color: #fff; padding: 14px; border-radius: 12px; width: 100%; margin-bottom: 12px;
+}
+
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(15px);
+  display: flex; border-top: 1px solid var(--border);
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); z-index: 1000;
+}
+.nav-item { flex: 1; background: transparent; font-size: 11px; color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.nav-item.active { color: var(--accent); }
+.nav-dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; }
+.active .nav-dot { background: var(--accent); }
+
+#modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 2000; display: none; }
+.prob-text { font-size: 10px; color: var(--accent); font-weight: 500; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  
+  <div id="gacha" class="screen active">
+    <div class="hero-banner">
+      <h1 id="display-title">ive SYSTEM Gacha</h1>
+      <div style="font-size: 11px; opacity: 0.6; margin-top: 8px;">-使いやすいガチャシステム-</div>
+    </div>
+    
+    <div class="glass-panel">
+      <input id="username" placeholder="プレイヤー名を入力">
+      <div class="btn-grid">
+        <button class="btn-action" onclick="draw(1)">単発</button>
+        <button class="btn-action" onclick="draw(5)">5連</button>
+        <button class="btn-highlight" onclick="draw(10)">10連</button>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <input id="customCount" type="number" placeholder="回数" style="width: 90px; margin-bottom:0;">
+        <button class="btn-action" style="flex:1;" onclick="drawCustom()">CUSTOM</button>
+      </div>
+    </div>
+
+    <div id="result-header" style="text-align: center; margin-bottom: 10px; font-weight: bold; color: var(--accent); display: none;"></div>
+    <div id="result"></div>
+
+    <div id="share-area" style="display:none; margin-top: 25px;">
+      <textarea id="shareText" readonly style="width:100%; height:80px; background:rgba(0,0,0,0.3); color:var(--text-secondary); border:1px solid var(--border); border-radius:12px; padding:12px; font-size:12px; resize:none; margin-bottom:12px;"></textarea>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <button class="btn-action" onclick="copyResult()">結果をコピー</button>
+        <button class="btn-action" style="background:#000;" onclick="postToX()">𝕏に投稿</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="admin" class="screen">
+    <h2 style="text-align:center; font-size:1.2rem; margin-bottom:20px;">SYSTEM SETTINGS</h2>
+    
+    <div class="glass-panel">
+      <h3 style="font-size:14px; margin-top:0; color:var(--text-secondary);">ガチャタイトルの設定</h3>
+      <div style="display: flex; gap: 8px;">
+        <input id="input-title" placeholder="ガチャ名を入力" style="margin-bottom:0;">
+        <button class="btn-highlight" style="padding:0 20px; white-space:nowrap;" onclick="updateTitle()">更新</button>
+      </div>
+    </div>
+
+    <div class="glass-panel">
+      <h3 style="font-size:14px; margin-top:0; color:var(--text-secondary);">レアリティ排出率 (%)</h3>
+      <div id="rarityRate" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;"></div>
+    </div>
+    <div class="glass-panel">
+      <h3 style="font-size:14px; margin-top:0; color:var(--text-secondary);">アイテムインベントリ</h3>
+      <button onclick="openModal()" class="btn-highlight" style="width:100%; padding:14px; margin-bottom:15px;">＋ 新規追加</button>
+      <div id="list"></div>
+    </div>
+    <button class="btn-action" style="background:#991b1b; width:100%;" onclick="clearAll()">データを初期化する</button>
+  </div>
+
+  <div id="log" class="screen">
+    <h2 style="text-align:center; font-size:1.2rem; margin-bottom:20px;">HISTORY</h2>
+    <button class="btn-action" style="width:100%; margin-bottom:20px;" onclick="clearLog()">履歴をすべてクリア</button>
+    <div id="logList"></div>
+  </div>
+
+</div>
+
+<div class="bottom-nav">
+  <button id="nav-gacha" class="nav-item active" onclick="showScreen('gacha')">
+    <span style="font-size:18px;">◈</span><span>GACHA</span><div class="nav-dot"></div>
+  </button>
+  <button id="nav-admin" class="nav-item" onclick="showScreen('admin')">
+    <span style="font-size:18px;">⚙</span><span>ADMIN</span><div class="nav-dot"></div>
+  </button>
+  <button id="nav-log" class="nav-item" onclick="showScreen('log')">
+    <span style="font-size:18px;">☰</span><span>LOG</span><div class="nav-dot"></div>
+  </button>
+</div>
+
+<div id="modal">
+  <div class="container" style="margin-top: 60px;">
+    <div class="glass-panel" style="background: #1e293b;">
+      <h2 style="margin-top: 0; font-size:1.1rem;">アイテム登録</h2>
+      <input id="name" placeholder="名前">
+      <select id="rarity"></select>
+      <input id="weight" type="number" placeholder="個別排出率">
+      <input id="stock" type="number" placeholder="在庫 (-1で無限)">
+      <div style="display: flex; gap: 12px; margin-top: 10px;">
+        <button class="btn-action" style="flex:1;" onclick="closeModal()">キャンセル</button>
+        <button class="btn-highlight" style="flex:1;" onclick="saveItem()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const rarityList=["UR","SSR","SR","R","N"];
+const rarityOrder={UR:1,SSR:2,SR:3,R:4,N:5};
+
+let gachaTitle = localStorage.getItem("gachaTitle") || "ive SYSTEM Gacha";
+let rarityRates = JSON.parse(localStorage.getItem("rarityRates")) || {UR:1, SSR:4, SR:10, R:25, N:60};
+let items = JSON.parse(localStorage.getItem("items")) || [];
+let logs = JSON.parse(localStorage.getItem("logs")) || [];
+let editIndex = null;
+
+const displayTitleEl = document.getElementById("display-title");
+const inputTitleEl = document.getElementById("input-title");
+const resultHeaderEl = document.getElementById("result-header");
+const resultEl = document.getElementById("result");
+const listEl = document.getElementById("list");
+const nameEl = document.getElementById("name");
+const rarityEl = document.getElementById("rarity");
+const weightEl = document.getElementById("weight");
+const stockEl = document.getElementById("stock");
+const modalEl = document.getElementById("modal");
+const shareEl = document.getElementById("shareText");
+const logListEl = document.getElementById("logList");
+const rateEl = document.getElementById("rarityRate");
+const usernameEl = document.getElementById("username");
+const customCountEl = document.getElementById("customCount");
+const shareArea = document.getElementById("share-area");
+
+displayTitleEl.innerText = gachaTitle;
+inputTitleEl.value = gachaTitle;
+rarityEl.innerHTML = rarityList.map(r => `<option>${r}</option>`).join("");
+
+function updateTitle() {
+  const newTitle = inputTitleEl.value.trim();
+  if(!newTitle) return alert("タイトルを入力してください");
+  gachaTitle = newTitle;
+  displayTitleEl.innerText = gachaTitle;
+  localStorage.setItem("gachaTitle", gachaTitle);
+  alert("タイトルを更新しました");
+}
+
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+  document.getElementById("nav-" + id).classList.add("active");
+}
+
+function renderRates(){
+  rateEl.innerHTML="";
+  rarityList.forEach(r=>{
+    rateEl.innerHTML+=`<div style="font-size:11px; text-align:center;">${r}<input type="number" value="${rarityRates[r]}" onchange="updateRate('${r}',this.value)" style="margin-top:6px; padding:8px; text-align:center; border-radius:8px;"></div>`;
+  });
+}
+
+function updateRate(r,v){
+  rarityRates[r]=Number(v);
+  localStorage.setItem("rarityRates",JSON.stringify(rarityRates));
+}
+
+function render(){
+  listEl.innerHTML="";
+  if(items.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; opacity:0.4; padding:30px; font-size:13px;">アイテムがありません</div>';
+    return;
+  }
+  rarityList.forEach(r=>{
+    const groupItems = items.filter(x => x.rarity === r);
+    const totalWeight = groupItems.reduce((sum, item) => sum + item.weight, 0);
+    if(!groupItems.length) return;
+    groupItems.forEach((x) => {
+      const idx = items.findIndex(item => item === x);
+      const prob = totalWeight > 0 ? ((x.weight / totalWeight) * 100).toFixed(1) : 0;
+      listEl.innerHTML += `
+      <div style="border-bottom:1px solid var(--border); padding:15px 0; display:flex; justify-content:space-between; align-items:center;">
+        <div style="flex:1;">
+          <div><span class="rarity-pill ${r.toLowerCase()}">${r}</span>${x.name} <span class="prob-text">${prob}%</span></div>
+          <small style="color:var(--text-secondary); font-size:10px;">在庫: ${x.stock === -1 ? "∞" : x.stock} / 個別排出率: ${x.weight}</small>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button style="background:transparent; color:var(--text-secondary); font-size:12px;" onclick="editItem(${idx})">編集</button>
+          <button style="background:transparent; color:#ef4444; font-size:12px;" onclick="deleteItem(${idx})">削除</button>
+        </div>
+      </div>`;
+    });
+  });
+}
+
+function drawCustom() {
+  const count = parseInt(customCountEl.value);
+  if(!count || count <= 0) return alert("回数を入力してください");
+  draw(count);
+}
+
+function drawRarity(){
+  let total=Object.values(rarityRates).reduce((a,b)=>a+b,0);
+  let r=Math.random()*total;
+  for(let key of rarityList){
+    r-=rarityRates[key];
+    if(r<=0)return key;
+  }
+}
+
+function drawItem(r){
+  const pool=items.filter(i=>i.rarity===r&&(i.stock===-1||i.stock>0));
+  if(!pool.length) return null;
+  let total=pool.reduce((a,b)=>a+b.weight,0);
+  let rand=Math.random()*total;
+  for(let item of pool){
+    rand-=item.weight;
+    if(rand<=0){
+      if(item.stock!==-1) item.stock--;
+      return item;
+    }
+  }
+}
+
+function draw(count){
+  const user = usernameEl.value.trim() || "PLAYER";
+  let map={};
+  let totalDrawn = 0;
+  for(let i=0; i<count; i++){
+    const rar=drawRarity();
+    const item=drawItem(rar);
+    if(!item) continue;
+    const key=item.name+"_"+item.rarity;
+    if(!map[key]) map[key]={...item, count:0};
+    map[key].count++;
+    totalDrawn++;
+  }
+  if(totalDrawn === 0) return alert("排出可能な在庫がありません");
+
+  const results=Object.values(map).sort((a,b)=>rarityOrder[a.rarity]-rarityOrder[b.rarity]);
+  
+  // ★結果ヘッダーにタイトルと回数を表示
+  resultHeaderEl.style.display = "block";
+  resultHeaderEl.innerText = `【${gachaTitle}】 ${count}回実行の結果`;
+
+  let html="";
+  let text=`[${gachaTitle}]\nPLAYER: ${user}\nCOUNT: ${count}回\n`;
+  results.forEach(r=>{
+    html+=`<div class="item-card"><span><span class="rarity-pill ${r.rarity.toLowerCase()}">${r.rarity}</span>${r.name}</span><span style="font-weight:800; color:var(--accent);">×${r.count}</span></div>`;
+    text+=`${r.rarity}: ${r.name} x${r.count}\n`;
+  });
+  
+  resultEl.innerHTML=html;
+  shareEl.value=text;
+  shareArea.style.display = "block";
+  localStorage.setItem("items",JSON.stringify(items));
+  saveLog(user, count, text);
+  render();
+}
+
+function saveLog(user,count,text){
+  logs.unshift({time:new Date().toLocaleString('ja-JP'),user,count,text});
+  if(logs.length > 20) logs.pop();
+  localStorage.setItem("logs",JSON.stringify(logs));
+  renderLog();
+}
+
+function renderLog(){
+  logListEl.innerHTML=logs.map(l=>`<div class="glass-panel" style="font-size:12px; margin-bottom:12px; padding:15px;"><div style="color:var(--accent); margin-bottom:8px; border-bottom:1px solid var(--border); padding-bottom:8px;">${l.time} / ${l.user} (${l.count}回)</div><pre style="margin:0; white-space:pre-wrap; font-family:inherit; color:var(--text-secondary); line-height:1.6;">${l.text}</pre></div>`).join("");
+}
+
+function clearLog(){ if(confirm("履歴を削除しますか？")){ logs=[]; localStorage.removeItem("logs"); renderLog(); } }
+function openModal(){ editIndex=null; nameEl.value=""; weightEl.value=""; stockEl.value=""; modalEl.style.display="block"; }
+function closeModal(){ modalEl.style.display="none"; }
+
+function saveItem(){
+  const n=nameEl.value.trim(), r=rarityEl.value, w=Number(weightEl.value), s=stockEl.value===""?-1:Number(stockEl.value);
+  if(!n||w<=0) return alert("正しく入力してください");
+  const data={name:n,rarity:r,weight:w,stock:s};
+  if(editIndex===null) items.push(data); else items[editIndex]=data;
+  localStorage.setItem("items",JSON.stringify(items));
+  closeModal(); render();
+}
+
+function editItem(i){
+  const it=items[i]; editIndex=i;
+  nameEl.value=it.name; rarityEl.value=it.rarity; weightEl.value=it.weight; stockEl.value=it.stock;
+  modalEl.style.display="block";
+}
+function deleteItem(i){ if(confirm("アイテムを削除しますか？")){ items.splice(i,1); localStorage.setItem("items",JSON.stringify(items)); render(); } }
+function clearAll(){ if(confirm("全データを削除して初期化しますか？")){ items=[]; localStorage.removeItem("items"); render(); } }
+function copyResult(){ navigator.clipboard.writeText(shareEl.value); alert("クリップボードにコピーしました"); }
+function postToX(){ window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(shareEl.value)); }
+
+render(); renderRates(); renderLog();
+</script>
+</body>
+</html>
